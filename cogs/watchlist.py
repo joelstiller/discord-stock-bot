@@ -33,10 +33,10 @@ class WatchlistCog(commands.Cog):
     # Commands
     # ------------------------------------------------------------------ #
 
-    @app_commands.command(name="watch", description="Set a price alert for a stock")
+    @app_commands.command(name="watch", description="Watch a stock — optionally set a price alert")
     @app_commands.describe(
         ticker="Stock ticker, e.g. AAPL",
-        target="Target price to alert at",
+        target="Optional target price for an alert",
         direction="Alert when price goes above or below target (auto-detected if omitted)",
     )
     @app_commands.choices(direction=[
@@ -48,7 +48,7 @@ class WatchlistCog(commands.Cog):
         self,
         interaction: discord.Interaction,
         ticker: str,
-        target: float,
+        target: float | None = None,
         direction: str | None = None,
     ):
         ticker = ticker.upper().strip()
@@ -60,7 +60,7 @@ class WatchlistCog(commands.Cog):
             return
         self.bot.price_cache.set(ticker, quote)
 
-        if direction is None:
+        if target is not None and direction is None:
             direction = _direction_from_price(quote.price, target)
 
         existing = await db.fetchone(
@@ -81,14 +81,14 @@ class WatchlistCog(commands.Cog):
             )
             action = "added"
 
-        gap = _gap_pct(quote.price, target, direction)
-        embed = discord.Embed(
-            title=f"Watch {action} — {ticker}",
-            color=discord.Color.blurple(),
-        )
+        log.info("/watch %s target=%s direction=%s (%s) by %s", ticker, target, direction, action, interaction.user)
+        embed = discord.Embed(title=f"Watch {action} — {ticker}", color=discord.Color.blurple())
         embed.add_field(name="Current Price", value=f"${quote.price:,.2f}", inline=True)
-        embed.add_field(name="Target", value=f"${target:,.2f} ({direction})", inline=True)
-        embed.add_field(name="Gap", value=gap, inline=True)
+        if target is not None:
+            embed.add_field(name="Target", value=f"${target:,.2f} ({direction})", inline=True)
+            embed.add_field(name="Gap", value=_gap_pct(quote.price, target, direction), inline=True)
+        else:
+            embed.add_field(name="Alert", value="None — tracking only", inline=True)
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="unwatch", description="Remove a price alert")
@@ -104,6 +104,7 @@ class WatchlistCog(commands.Cog):
             await interaction.response.send_message(f"No active watch found for **{ticker}**.", ephemeral=True)
             return
         await db.execute("DELETE FROM watchlist WHERE id = ?", (row["id"],))
+        log.info("/unwatch %s by %s", ticker, interaction.user)
         await interaction.response.send_message(f"Removed watch for **{ticker}**.", ephemeral=True)
 
     @app_commands.command(name="watchlist", description="Show your active price alerts")
@@ -139,17 +140,21 @@ class WatchlistCog(commands.Cog):
             ticker = r["ticker"]
             quote = self.bot.price_cache.get(ticker)
             current_str = f"${quote.price:,.2f}" if quote else "N/A"
-            gap_str = _gap_pct(quote.price, r["target"], r["direction"]) if quote else "N/A"
-            lines.append(
-                f"**{ticker}** — target ${r['target']:,.2f} ({r['direction']})  "
-                f"current {current_str}  gap {gap_str}"
-            )
+            change_str = f" ({quote.change_pct:+.2f}%)" if quote else ""
+            if r["target"] is not None and quote:
+                alert_str = f"  →  target ${r['target']:,.2f} ({r['direction']})  gap {_gap_pct(quote.price, r['target'], r['direction'])}"
+            elif r["target"] is not None:
+                alert_str = f"  →  target ${r['target']:,.2f} ({r['direction']})"
+            else:
+                alert_str = ""
+            lines.append(f"**{ticker}**  {current_str}{change_str}{alert_str}")
 
         embed = discord.Embed(
             title=f"{user.display_name}'s Watchlist",
             description="\n".join(lines),
             color=discord.Color.blurple(),
         )
+        log.info("/watchlist for %s viewed by %s (%d entries)", user, interaction.user, len(rows))
         await interaction.followup.send(embed=embed)
 
     # ------------------------------------------------------------------ #
@@ -175,8 +180,8 @@ class WatchlistCog(commands.Cog):
         for ticker, quote in quotes.items():
             self.bot.price_cache.set(ticker, quote)
 
-        # Check alert conditions
-        active_watches = await db.fetchall("SELECT * FROM watchlist WHERE triggered = 0")
+        # Check alert conditions — only for watches with a target set
+        active_watches = await db.fetchall("SELECT * FROM watchlist WHERE triggered = 0 AND target IS NOT NULL")
         for row in active_watches:
             ticker = row["ticker"]
             quote = quotes.get(ticker)

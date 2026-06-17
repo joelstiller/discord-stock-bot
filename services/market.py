@@ -93,6 +93,7 @@ def _fetch_quotes_sync(tickers: list[str]) -> dict[str, Quote]:
                 avg_volume=int(info.three_month_average_volume or 0),
                 market_cap=float(info.market_cap) if info.market_cap else None,
             )
+            log.info("Fetched %s @ $%.2f (%+.2f%%)", ticker.upper(), price, change_pct)
         except Exception as exc:
             log.warning("Failed to fetch %s: %s", ticker, exc)
     return results

@@ -50,17 +50,25 @@ class StonksBot(commands.Bot):
         for cog in COGS:
             await self.load_extension(cog)
             log.info("Loaded cog: %s", cog)
-        await self.tree.sync()
-        log.info("Slash commands synced")
+        log.info("Cogs loaded — guild sync will happen in on_ready")
 
     async def on_ready(self):
         log.info("Logged in as %s (id=%s)", self.user, self.user.id)
+        # Clear any stale global commands
+        self.tree.clear_commands(guild=None)
+        await self.tree.sync()
+
         for guild in self.guilds:
             ch = discord.utils.get(guild.text_channels, name=config.STONKS_CHANNEL_NAME)
             if ch:
                 self.stonks_channel = ch
                 log.info("Found #%s in guild '%s'", config.STONKS_CHANNEL_NAME, guild.name)
-                break
+
+            # Guild sync is instant vs global sync which can take up to an hour
+            self.tree.copy_global_to(guild=guild)
+            await self.tree.sync(guild=guild)
+            log.info("Slash commands synced to guild '%s'", guild.name)
+
         if not self.stonks_channel:
             log.warning("Could not find channel #%s", config.STONKS_CHANNEL_NAME)
 

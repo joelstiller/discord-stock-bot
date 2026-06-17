@@ -8,7 +8,7 @@ HELP_TEXT = """
 `/price <ticker>` — Current price, change %, high/low, volume
 
 **WATCHLIST**
-`/watch <ticker> <target> [above|below]` — Add a price alert
+`/watch <ticker> [target] [above|below]` — Watch a stock; add a target price to get alerted
 `/unwatch <ticker>` — Remove an alert
 `/watchlist` — Show your active watches
 `/view <@user>` — See another user's watchlist

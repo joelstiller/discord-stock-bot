@@ -120,6 +120,7 @@ class AnalysisCog(commands.Cog):
         embed.add_field(name="Price", value=f"${quote.price:,.2f} ({quote.change_pct:+.2f}%)", inline=True)
         embed.set_footer(text=f"Data as of {now_et} · {config.OLLAMA_MODEL}")
 
+        log.info("/analyze %s → %s (%s confidence) by %s", ticker, signal, confidence, interaction.user)
         await interaction.followup.send(embed=embed)
 
 

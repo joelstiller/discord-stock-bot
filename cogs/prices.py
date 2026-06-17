@@ -1,8 +1,11 @@
+import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
 from bot import stonks_only
 from services.market import fetch_one, is_market_open
+
+log = logging.getLogger("stonks.prices")
 
 
 def _price_embed(quote) -> discord.Embed:
@@ -41,14 +44,17 @@ class PricesCog(commands.Cog):
         ticker = ticker.upper().strip()
         await interaction.response.defer()
 
+        cached = self.bot.price_cache.get(ticker) is not None
         quote = self.bot.price_cache.get(ticker)
         if not quote:
             quote = await fetch_one(ticker)
             if not quote:
+                log.warning("/price %s by %s — not found", ticker, interaction.user)
                 await interaction.followup.send(f"**{ticker}** not found. Check the symbol and try again.")
                 return
             self.bot.price_cache.set(ticker, quote)
 
+        log.info("/price %s by %s — $%.2f (%s)", ticker, interaction.user, quote.price, "cached" if cached else "fetched")
         await interaction.followup.send(embed=_price_embed(quote))
 
 

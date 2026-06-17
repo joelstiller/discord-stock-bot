@@ -15,6 +15,30 @@ async def init_db():
     schema = SCHEMA_PATH.read_text()
     await _db.executescript(schema)
     await _db.commit()
+    await _migrate(_db)
+
+
+async def _migrate(conn: aiosqlite.Connection):
+    # Make watchlist.target and .direction nullable (SQLite requires table recreation)
+    async with conn.execute("PRAGMA table_info(watchlist)") as cur:
+        cols = {row["name"]: row for row in await cur.fetchall()}
+    if cols.get("target") and cols["target"]["notnull"]:
+        await conn.executescript("""
+            ALTER TABLE watchlist RENAME TO watchlist_old;
+            CREATE TABLE watchlist (
+                id          INTEGER PRIMARY KEY,
+                user_id     TEXT NOT NULL,
+                guild_id    TEXT NOT NULL,
+                ticker      TEXT NOT NULL,
+                target      REAL,
+                direction   TEXT CHECK(direction IN ('above','below')),
+                triggered   INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            INSERT INTO watchlist SELECT * FROM watchlist_old;
+            DROP TABLE watchlist_old;
+        """)
+        await conn.commit()
 
 
 def get_db() -> aiosqlite.Connection:

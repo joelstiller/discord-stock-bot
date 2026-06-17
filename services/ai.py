@@ -75,6 +75,7 @@ async def analyze(quote: Quote, extras: dict, news: list[str], base_url: str, mo
         "stream": False,
         "options": {"temperature": 0.3},
     }
+    log.info("Sending prompt to %s for %s:\n%s", model, quote.ticker, prompt)
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(f"{base_url}/api/generate", json=payload, timeout=aiohttp.ClientTimeout(total=120)) as resp:
@@ -84,6 +85,7 @@ async def analyze(quote: Quote, extras: dict, news: list[str], base_url: str, mo
     except Exception as exc:
         log.error("Ollama request failed: %s", exc)
         raise
+    log.info("DeepSeek response for %s:\n%s", quote.ticker, response_text)
 
     # Strip DeepSeek-R1 chain-of-thought blocks before parsing
     response_text = re.sub(r"<think>.*?</think>", "", response_text, flags=re.DOTALL).strip()

@@ -1,3 +1,4 @@
+import logging
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -6,6 +7,8 @@ from datetime import datetime, timezone, UTC
 from bot import stonks_only
 from services import db
 from services.market import fetch_one
+
+log = logging.getLogger("stonks.trades")
 
 
 def _pnl(side: str, entry: float, current: float, shares: float | None, notional: float | None) -> float:
@@ -81,6 +84,7 @@ class TradesCog(commands.Cog):
         embed.add_field(name="Shares", value=f"{shares:,.2f}", inline=True)
         embed.add_field(name="Entry", value=f"${price:,.2f}", inline=True)
         embed.add_field(name="Total Cost", value=f"${shares * price:,.2f}", inline=True)
+        log.info("/long #%d %s %.2f sh @ $%.2f by %s", trade_num, ticker, shares, price, interaction.user)
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="short", description="Open a theoretical short position")
@@ -127,6 +131,7 @@ class TradesCog(commands.Cog):
         embed.add_field(name="Entry", value=f"${price:,.2f}", inline=True)
         shares_eq = notional / price
         embed.add_field(name="Shares Equiv.", value=f"{shares_eq:,.2f}", inline=True)
+        log.info("/short #%d %s $%.0f notional @ $%.2f by %s", trade_num, ticker, notional, price, interaction.user)
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="trades", description="List your theoretical positions with live P&L")
@@ -233,6 +238,7 @@ class TradesCog(commands.Cog):
         embed.add_field(name="Entry", value=f"${row['entry_price']:,.2f}", inline=True)
         embed.add_field(name="Exit", value=f"${price:,.2f}", inline=True)
         embed.add_field(name="P&L", value=f"**{sign}${pnl:,.2f}**", inline=False)
+        log.info("/close #%d %s @ $%.2f P&L %s$%.2f by %s", trade_id, row["ticker"], price, sign, abs(pnl), interaction.user)
         await interaction.followup.send(embed=embed)
 
 

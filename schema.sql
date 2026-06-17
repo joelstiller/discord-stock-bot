@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS watchlist (
     user_id     TEXT NOT NULL,
     guild_id    TEXT NOT NULL,
     ticker      TEXT NOT NULL,
-    target      REAL NOT NULL,
-    direction   TEXT NOT NULL CHECK(direction IN ('above','below')),
+    target      REAL,
+    direction   TEXT CHECK(direction IN ('above','below')),
     triggered   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
