@@ -1,0 +1,14 @@
+[Unit]
+Description=Discord Stock Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/kassimila/discord_stock_bot
+ExecStart=/home/kassimila/discord_stock_bot/.venv/bin/python bot.py
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=/home/kassimila/discord_stock_bot/.env
+
+[Install]
+WantedBy=default.target
