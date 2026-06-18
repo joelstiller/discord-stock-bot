@@ -50,14 +50,11 @@ class StonksBot(commands.Bot):
         for cog in COGS:
             await self.load_extension(cog)
             log.info("Loaded cog: %s", cog)
-        log.info("Cogs loaded — guild sync will happen in on_ready")
+        await self.tree.sync()
+        log.info("Cogs loaded, global commands synced")
 
     async def on_ready(self):
         log.info("Logged in as %s (id=%s)", self.user, self.user.id)
-        # Clear any stale global commands
-        self.tree.clear_commands(guild=None)
-        await self.tree.sync()
-
         for guild in self.guilds:
             ch = discord.utils.get(guild.text_channels, name=config.STONKS_CHANNEL_NAME)
             if ch:
